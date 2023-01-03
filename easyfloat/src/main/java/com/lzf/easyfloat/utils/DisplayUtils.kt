@@ -7,8 +7,10 @@ import android.graphics.Point
 import android.os.Build
 import android.provider.Settings
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
+import androidx.window.layout.WindowMetrics
 import com.lzf.easyfloat.permission.rom.RomUtils
 
 /**
@@ -44,13 +46,26 @@ object DisplayUtils {
      * 获取屏幕宽度（显示宽度，横屏的时候可能会小于物理像素值）
      */
     fun getScreenWidth(context: Context): Int {
-        val manager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val metrics = DisplayMetrics()
-        manager.defaultDisplay.getRealMetrics(metrics)
-        return if (context.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
-            metrics.widthPixels
+        // fix android 12
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val windowContext = context.createWindowContext(context.display!!,
+                WindowManager.LayoutParams.TYPE_APPLICATION, null)
+            val projectionMetrics = windowContext.getSystemService(WindowManager::class.java)
+                    .currentWindowMetrics
+            return if (context.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
+                projectionMetrics.bounds.width()
+            } else {
+                projectionMetrics.bounds.width() - getNavigationBarCurrentHeight(context)
+            }
         } else {
-            metrics.widthPixels - getNavigationBarCurrentHeight(context)
+            val manager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val metrics = DisplayMetrics()
+            manager.defaultDisplay.getRealMetrics(metrics)
+            return if (context.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
+                metrics.widthPixels
+            } else {
+                metrics.widthPixels - getNavigationBarCurrentHeight(context)
+            }
         }
     }
 
@@ -63,9 +78,21 @@ object DisplayUtils {
      * 获取屏幕宽高
      */
     fun getScreenSize(context: Context) = Point().apply {
-        val windowManager = context.getSystemService(Service.WINDOW_SERVICE) as WindowManager
-        val display = windowManager.defaultDisplay
-        display.getRealSize(this)
+        // fix android 12
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val windowContext = context.createWindowContext(
+                context.display!!,
+                WindowManager.LayoutParams.TYPE_APPLICATION, null
+            )
+            val projectionMetrics = windowContext.getSystemService(WindowManager::class.java)
+                    .currentWindowMetrics
+            this.x = projectionMetrics.bounds.width()
+            this.y = projectionMetrics.bounds.height()
+        } else {
+            val windowManager = context.getSystemService(Service.WINDOW_SERVICE) as WindowManager
+            val display = windowManager.defaultDisplay
+            display.getRealSize(this)
+        }
     }
 
     /**
@@ -117,6 +144,7 @@ object DisplayUtils {
      * 不包含导航栏的有效高度（没有导航栏，或者已去除导航栏的高度）
      */
     fun rejectedNavHeight(context: Context): Int {
+        // android 12
         val point = getScreenSize(context)
         if (point.x > point.y) return point.y
         return point.y - getNavigationBarCurrentHeight(context)
