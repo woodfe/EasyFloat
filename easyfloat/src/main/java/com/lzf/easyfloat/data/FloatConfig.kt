@@ -55,7 +55,7 @@ data class FloatConfig(
 
     // 四周边界值
     var leftBorder: Int = 0,
-    var topBorder: Int = -999,
+    var topBorder: Int = 0,
     var rightBorder: Int = 9999,
     var bottomBorder: Int = 9999,
 
